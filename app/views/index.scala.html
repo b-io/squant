@@ -1,0 +1,62 @@
+@()(implicit r: Request[_])
+<!DOCTYPE html>
+
+<html>
+	<head>
+		<title>Reactive Security News Dashboard</title>
+		<link rel='stylesheet' href='@routes.Assets.at("lib/bootstrap/css/bootstrap.min.css")'>
+		<link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/main.css")">
+		<link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/favicon.png")">
+
+		<script type='text/javascript' src='@routes.Assets.at("lib/jquery/jquery.min.js")'></script>
+		<script type='text/javascript' src='@routes.Assets.at("lib/bootstrap/js/bootstrap.js")'></script>
+		<script type='text/javascript' src='@routes.Assets.at("lib/flot/jquery.flot.js")'></script>
+		<script type="text/javascript" src='@routes.Assets.at("lib/flot/jquery.flot.crosshair.js")'></script>
+		<script type="text/javascript" src='@routes.Assets.at("lib/flot/jquery.flot.resize.js")'></script>
+		<script type="text/javascript" src='@routes.Assets.at("lib/flot/jquery.flot.selection.js")'></script>
+		<script type="text/javascript" src='@routes.Assets.at("lib/flot/jquery.flot.threshold.js")'></script>
+		<script type="text/javascript" src='@routes.Assets.at("lib/flot/jquery.flot.time.js")'></script>
+		<script type="text/javascript" src='@routes.Assets.at("lib/momentjs/moment.js")'></script>
+
+		<script type='text/javascript' src='@routes.Assets.at("javascripts/index.js")'></script>
+	</head>
+
+	<body data-ws-url="@routes.HomeController.ws.webSocketURL()">
+
+		<div class="navbar navbar-inverse navbar-fixed-top">
+			<div class="navbar-inner">
+				<div class="container">
+
+					<div class="table">
+							<div class="table-cell-left title">Reactive Securities</div>
+							<div class="table-cell-right">
+								<form id="add-security-form" class="table-cell-right navbar-form">
+
+									<div class="table">
+										<div class="table-cell-left">
+											<input id="add-security-text" type="text" placeholder="SECURITY">
+										</div>
+										<div class="table-cell-right">
+											<button type="submit" class="btn">Add Security</button>
+										</div>
+									</div>
+
+								</form>
+							</div>
+						</div>
+
+				</div>
+			</div>
+		</div>
+
+		<div class="content">
+			<div class="container">
+				<div id="securities" tabindex="0"></div>
+			</div>
+		</div>
+
+		<div class="footer">
+			<div class="container">© <a href="http://barras.io">Florian Barras</a> 2018</div>
+		</div>
+	</body>
+</html>

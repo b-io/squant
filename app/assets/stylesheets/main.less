@@ -1,0 +1,390 @@
+////////////////////////////////////////////////////////////////////////////////
+// COMMON
+////////////////////////////////////////////////////////////////////////////////
+
+.border-radius(@value) {
+	-webkit-border-radius: @value;
+	-moz-border-radius: @value;
+	border-radius: @value;
+}
+
+.perspective(@value) {
+	-webkit-perspective: @value;
+	-moz-perspective: @value;
+	perspective: @value;
+}
+
+.transform(@value) {
+	-webkit-transform: rotateY(@value);
+	-moz-transform: rotateY(@value);
+	transform: rotateY(@value);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+.background(@principal, @effect) {
+	.background(@principal, @effect, 10%, 90%)
+}
+.background(@principal, @effect, @from, @to) {
+	background: @principal;
+	background: linear-gradient(@effect 0, @principal @from, @principal @to, @effect);
+	background: -o-linear-gradient(@effect 0, @principal @from, @principal @to, @effect);
+	background: -ms-linear-gradient(@effect 0, @principal @from, @principal @to, @effect);
+	background: -moz-linear-gradient(@effect 0, @principal @from, @principal @to, @effect);
+	background: -webkit-linear-gradient(@effect 0, @principal @from, @principal @to, @effect);
+}
+
+.border(@principal, @effect) {
+	border: 1px solid transparent;
+	.background(@principal, @effect);
+}
+
+.shadow() {
+	box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+	-o-box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+	-ms-box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+	-moz-box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+	-webkit-box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+.no-shadow() {
+	box-shadow: none;
+	-o-box-shadow: none;
+	-ms-box-shadow: none;
+	-moz-box-shadow: none;
+	-webkit-box-shadow: none;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+.table, .table .table {
+	display: table;
+	width: 100%;
+	min-width: 100%;
+	max-width: 100%;
+	background-color: transparent;
+
+	border: 0;
+	padding: 0;
+}
+.table {
+	margin: 2px 0;
+}
+.table .table {
+	margin: 0;
+}
+
+.table-cell, .table-cell-left, .table-cell-right {
+	display: table-cell;
+	width: 100%;
+	min-width: 100%;
+	max-width: 100%;
+	vertical-align: middle;
+
+	border: 0;
+}
+.table-cell-left {
+	text-align: left;
+
+	padding-right: 2px;
+}
+.table-cell {
+	text-align: center;
+
+	padding-left: 2px;
+	padding-right: 2px;
+}
+.table-cell-right {
+	text-align: right;
+
+	padding-left: 2px;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// BODY
+////////////////////////////////////////////////////////////////////////////////
+
+body {
+	font-family: 'Montserrat', sans-serif;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+a, a:active, a:focus, a:focus:hover, a:hover, a:link, a:visited {
+	text-decoration: none;
+}
+a, a:focus, a:link, a:visited {
+	color: #2996CC;
+}
+a:active, a:focus:hover, a:hover {
+	color: #33BBFF;
+}
+
+input {
+	text-align: center;
+	color: black;
+	.background(white, rgba(0,0,0,0));
+	.no-shadow();
+
+	margin: 0;
+	border: 0;
+	.border-radius(3px);
+	padding: 5px;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+.btn {
+	text-align: center;
+	.no-shadow();
+	cursor: hand;
+	cursor: pointer;
+
+	margin: 0;
+	border: 0;
+	.border-radius(5px);
+	padding: 5px;
+}
+.btn, .btn:focus, .btn:link, .btn:visited {
+	color: white;
+	.background(#2996CC, rgba(0,0,0,0));
+}
+.btn:active, .btn:focus:hover, .btn:hover {
+	color: white;
+	.background(#33BBFF, rgba(0,0,0,0));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+.red-border {
+	.border(#404040, #FF8080);
+}
+.green-border {
+	.border(#404040, #80FF80);
+}
+.blue-border {
+	.border(#404040, #8080FF);
+}
+
+.unselected {
+	.border(#404040, rgba(0,0,0,0));
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// NAVIGATION
+////////////////////////////////////////////////////////////////////////////////
+
+.navbar {
+	z-index: 10;
+
+	min-width: 500px;
+	min-height: 0;
+	.border-radius(0 0 5px 5px);
+
+	margin: 0;
+	border: 0;
+	padding: 0;
+}
+.navbar-form {
+	.no-shadow();
+
+	margin: 0;
+	border: 0;
+	padding: 0;
+}
+
+.title {
+	font-size: 19px;
+	color: white;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// CONTENT
+////////////////////////////////////////////////////////////////////////////////
+
+.content {
+	width: 100%;
+	min-width: 500px;
+	max-width: 100%;
+	box-sizing: border-box;
+
+	margin-top: 35px;
+	margin-bottom: 20px;
+	border: 0;
+	padding: 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+.flip-container {
+	width: 100%;
+	min-width: 100%;
+	max-width: 100%;
+
+	margin: 20px auto;
+	border: 0;
+	padding: 0;
+
+	.perspective(1000);
+	&:hover .flipper {
+		.transform(0deg);
+	}
+	&.flipped .flipper {
+		.transform(180deg);
+	}
+}
+
+.flipper {
+	width: 100%;
+	min-width: 100%;
+	max-width: 100%;
+	height: 250px;
+	.background(white, #F2F2F2);
+	.shadow();
+	cursor: hand;
+	cursor: pointer;
+
+	margin: 0;
+	border: 1px solid #BFBFBF;
+	.border-radius(5px);
+	padding: 0;
+
+	-webkit-transition: 0.6s;
+	-moz-transition: 0.6s;
+	transition: 0.6s;
+
+	-webkit-transform-style: preserve-3d;
+	-moz-transform-style: preserve-3d;
+	transform-style: preserve-3d;
+
+	&:after {
+		content: attr(id);
+		position: absolute;
+		color: #999;
+		background-color: white;
+		font-size: 13px;
+		font-weight: bold;
+
+		margin-left: -1px;
+		margin-top: -1px;
+		border: 1px solid #BFBFBF;
+		.border-radius(5px 0 5px 0);
+		padding: 5px 7px 5px 7px;
+	}
+}
+
+.chart-holder, .details-holder {
+	position: absolute;
+	width: 100%;
+	min-width: 100%;
+	max-width: 100%;
+	height: 250px;
+
+	margin: 0;
+	border: 0;
+	padding: 0 40px 0 15px;
+
+	-webkit-backface-visibility: hidden;
+	-moz-backface-visibility: hidden;
+	backface-visibility: hidden;
+}
+
+.chart-holder {
+	z-index: 2;
+}
+
+.details-holder {
+	z-index: 1;
+
+	text-align: center;
+	vertical-align: middle;
+
+	.transform(180deg);
+	& h1, h2, h3, h4 {
+		margin: 45px 45px 15px 45px;
+	}
+	& .progress {
+		background: none;
+
+		margin: 30px;
+	}
+	& img {
+		width: 128px;
+		height: 128px;
+
+		margin: 0;
+	}
+}
+
+.chart {
+	position: relative;
+	width: 100%;
+	min-width: 100%;
+	max-width: 100%;
+	height: 210px;
+
+	margin: 30px 10px 10px 10px;
+	border: 0;
+	padding: 0;
+}
+
+.legend {
+	float: right;
+	color: white;
+	background: white;
+
+	margin-top: -1px;
+	border: 1px solid #BFBFBF;
+	.border-radius(0 0 5px 5px);
+	padding: 5px;
+}
+
+.legendLabel {
+	margin: 0;
+	border: 1px solid white;
+	padding-right: 5px;
+}
+
+.tooltip {
+	z-index: 3;
+
+	position: absolute;
+	text-align: center;
+	color: white;
+	opacity: 0.9;
+	.shadow();
+	cursor: hand;
+	cursor: pointer;
+
+	margin: 1.5px;
+	border: 0;
+	.border-radius(3px);
+	padding: 3px;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// FOOTER
+////////////////////////////////////////////////////////////////////////////////
+
+.footer {
+	z-index: 10;
+
+	position: fixed;
+	left: 0;
+	bottom: 0;
+	width: 100%;
+	min-width: 500px;
+	max-width: 100%;
+	min-height: 0;
+	text-align: center;
+	color: white;
+	background-color: black;
+
+	margin: auto;
+	border: 0;
+	.border-radius(5px 5px 0 0);
+	padding: 0;
+}
