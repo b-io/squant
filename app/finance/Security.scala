@@ -40,7 +40,15 @@ class Security(val id: SecurityId) {
 	  */
 	def history(n: Int): Source[SecurityHistory, NotUsed] = {
 		source.grouped(n)
-				.map(quote => SecurityHistory(id, quote.map(_.date), quote.map(_.price), quote.map(_.volume)))
+				.map(quote => SecurityHistory(
+					id,
+					quote.map(_.date),
+					quote.map(_.values.head),
+					quote.map(_.values(1)),
+					quote.map(_.values(2)),
+					quote.map(_.values(3)),
+					quote.map(_.values(4))
+				))
 				.take(1)
 	}
 
@@ -49,7 +57,15 @@ class Security(val id: SecurityId) {
 	  */
 	def update: Source[SecurityUpdate, NotUsed] = {
 		source.throttle(elements = 1, per = 100.millis, maximumBurst = 1, ThrottleMode.shaping)
-				.map(quote => SecurityUpdate(quote.id, quote.date, quote.price, quote.volume))
+				.map(quote => SecurityUpdate(
+					id,
+					quote.date,
+					quote.values.head,
+					quote.values(1),
+					quote.values(2),
+					quote.values(3),
+					quote.values(4)
+				))
 	}
 
 	override val toString: String = s"Security($id)"
@@ -72,14 +88,13 @@ class FakeQuoteGenerator(id: SecurityId) extends SecurityQuoteGenerator {
 
 	def seed: SecurityQuote = {
 		logger.info(s"[$id] Get the seed")
-		SecurityQuote(id, Dates.now(), SecurityPrice(random * 100), SecurityVolume(100))
+		SecurityQuote(id, Dates.now(), List(SecurityValue(random * 100), SecurityValue(100)))
 	}
 
 	def nextQuote(lastQuote: SecurityQuote): SecurityQuote = SecurityQuote(
 		id,
 		Dates.now(),
-		SecurityPrice(lastQuote.price.raw * (0.95 + (0.1 * random))),
-		SecurityVolume(100)
+		List(SecurityValue(lastQuote.values.head.raw * (0.95 + (0.1 * random))), SecurityValue(100))
 	)
 }
 
@@ -88,8 +103,7 @@ class RealQuoteGenerator(id: SecurityId) extends SecurityQuoteGenerator {
 
 	private val api: SecurityQuoteAPI = Conf.INJECTOR.instanceOf(classOf[SecurityQuoteAPI])
 	private val beat = SecurityId("")
-	private val cache: mutable.Queue[(Date, (SecurityPrice, SecurityVolume))] = mutable.Queue
-			.empty[(Date, (SecurityPrice, SecurityVolume))]
+	private val cache: mutable.Queue[(Date, Seq[SecurityValue])] = mutable.Queue.empty[(Date, Seq[SecurityValue])]
 	private var lastCacheRefresh = Dates.convert(0L)
 
 	// Fetch the quotes and update the cache
@@ -116,28 +130,25 @@ class RealQuoteGenerator(id: SecurityId) extends SecurityQuoteGenerator {
 								logger.info(s"[$id] Update the cache of quotes from [$fromDate]")
 
 								// Check the fields
-								val allFields = o.fields.map(
-									f => (
-										// - Compulsory fields
+								val allFields = o.fields.map(f => (
 										allCatch opt Dates.parse(f._1.toString, API.DATE_FORMATTER),
-										allCatch opt (f._2 \ API.PRICE).as[String].toDouble,
-										// - Optional fields
-										allCatch opt (f._2 \ API.VOLUME).as[String].toDouble,
-										allCatch opt (f._2 \ API.CAP).as[String].toDouble
-									)
-								)
+										allCatch opt (f._2 \ API.OPEN).as[String].toDouble,
+										allCatch opt (f._2 \ API.HIGH).as[String].toDouble,
+										allCatch opt (f._2 \ API.LOW).as[String].toDouble,
+										allCatch opt (f._2 \ API.CLOSE).as[String].toDouble,
+										allCatch opt (f._2 \ API.VOLUME).as[String].toDouble
+								))
 
 								// Filter the fields
 								val fields = allFields.filter(f => f._1.isDefined && f._2.isDefined)
 										.map(f => (
-												// - Compulsory fields
 												f._1.get,
-												f._2.get,
-												// - Optional fields
+												f._2.getOrElse[Double](0),
 												f._3.getOrElse[Double](0),
-												f._4.getOrElse[Double](0)
-											)
-										)
+												f._4.getOrElse[Double](0),
+												f._5.getOrElse[Double](0),
+												f._6.getOrElse[Double](0)
+										))
 								val n = allFields.size - fields.size
 								if (n > 0)
 									logger.error(s"[$id] Filter $n invalid quotes")
@@ -149,7 +160,14 @@ class RealQuoteGenerator(id: SecurityId) extends SecurityQuoteGenerator {
 										.foreach(
 											f => {
 												logger.debug(s"[$id] + Add [$f]")
-												cache.enqueue((f._1, (SecurityPrice(f._2), SecurityVolume(f._3))))
+												cache.enqueue((
+														f._1,
+														List(SecurityValue(f._2),
+															SecurityValue(f._3),
+															SecurityValue(f._4),
+															SecurityValue(f._5),
+															SecurityValue(f._6))
+												))
 												if (cache.lengthCompare(Graph.SIZE) > 0) cache.dequeue
 											}
 										)
@@ -158,16 +176,16 @@ class RealQuoteGenerator(id: SecurityId) extends SecurityQuoteGenerator {
 								s"[$id] Could not fetch the quotes: Invalid JSON format"
 							)
 						}
-					} else logger.error(s"[$id] Could not fetch the quotes: No [${ API.DATA }]")
-				} else logger.error(s"[$id] Could not fetch the quotes: ${ error.head._2 }")
-			case Failure(e) => logger.error(s"[$id] Could not fetch the quotes: ${ e.getMessage }")
+					} else logger.error(s"[$id] Could not fetch the quotes: No [${API.DATA}]")
+				} else logger.error(s"[$id] Could not fetch the quotes: ${error.head._2}")
+			case Failure(e) => logger.error(s"[$id] Could not fetch the quotes: ${e.getMessage}")
 		}
 	}
 
 	def seed: SecurityQuote = {
 		updateCache()
 		logger.info(s"[$id] -> Seed")
-		SecurityQuote(beat, API.FROM_DATE, SecurityPrice(0), SecurityVolume(0))
+		SecurityQuote(beat, API.FROM_DATE, List(SecurityValue(0), SecurityValue(0)))
 	}
 
 	def nextQuote(lastQuote: SecurityQuote): SecurityQuote = {
@@ -175,10 +193,10 @@ class RealQuoteGenerator(id: SecurityId) extends SecurityQuoteGenerator {
 		// Return the next quote (i.e. the one just after the last quote)
 		if (cache.exists(_._1.isAfter(lastQuote.date))) {
 			val data = cache.filter(_._1.isAfter(lastQuote.date)).front
-			val quote = SecurityQuote(id, data._1, data._2._1, data._2._2)
+			val quote = SecurityQuote(id, data._1, data._2)
 			logger.debug(s"[$id] -> Next quote: [$quote] (previously [$lastQuote])")
 			quote
-		} else SecurityQuote(beat, lastQuote.date, lastQuote.price, lastQuote.volume)
+		} else SecurityQuote(beat, lastQuote.date, lastQuote.values)
 	}
 }
 
@@ -186,13 +204,15 @@ class RealQuoteGenerator(id: SecurityId) extends SecurityQuoteGenerator {
 // JSON SERIALIZER
 ////////////////////////////////////////////////////////////////////////////////
 
-case class SecurityQuote(id: SecurityId, date: Date, price: SecurityPrice, volume: SecurityVolume)
+case class SecurityQuote(id: SecurityId, date: Date, values: Seq[SecurityValue])
 
 /** Value class for the ID of a security */
 class SecurityId private(val raw: String) extends AnyVal {
 	override def toString: String = raw
 }
+
 object SecurityId {
+
 	import play.api.libs.json._ // Combinator syntax
 
 	def apply(raw: String) = new SecurityId(raw)
@@ -202,28 +222,18 @@ object SecurityId {
 	implicit val securityIdWrites: Writes[SecurityId] = (id: SecurityId) => JsString(id.raw)
 }
 
-/** Value class for the price of a security */
-class SecurityPrice private(val raw: Double) extends AnyVal {
+/** Value class for the quote value of a security (open / high / low / close value or volume) */
+class SecurityValue private(val raw: Double) extends AnyVal {
 	override def toString: String = String.valueOf(raw)
 }
-object SecurityPrice {
+
+object SecurityValue {
+
 	import play.api.libs.json._ // Combinator syntax
 
-	def apply(raw: Double): SecurityPrice = new SecurityPrice(raw)
+	def apply(value: Double): SecurityValue = new SecurityValue(value)
 
-	implicit val securityPriceWrites: Writes[SecurityPrice] = (price: SecurityPrice) => JsNumber(price.raw)
-}
-
-/** Value class for the volume of a security */
-class SecurityVolume private(val raw: Double) extends AnyVal {
-	override def toString: String = String.valueOf(raw)
-}
-object SecurityVolume {
-	import play.api.libs.json._ // Combinator syntax
-
-	def apply(raw: Double): SecurityVolume = new SecurityVolume(raw)
-
-	implicit val securityVolumeWrites: Writes[SecurityVolume] = (volume: SecurityVolume) => JsNumber(volume.raw)
+	implicit val securityValueWrites: Writes[SecurityValue] = (value: SecurityValue) => JsNumber(value.raw)
 }
 
 /**
@@ -231,9 +241,15 @@ object SecurityVolume {
   *
   * @see https://www.playframework.com/documentation/2.6.x/ScalaJson
   */
-case class SecurityHistory(id: SecurityId, dates: Seq[Date], prices: Seq[SecurityPrice], volumes: Seq[SecurityVolume])
-
+case class SecurityHistory(id: SecurityId,
+                           dates: Seq[Date],
+                           opens: Seq[SecurityValue],
+                           highs: Seq[SecurityValue],
+                           lows: Seq[SecurityValue],
+                           closes: Seq[SecurityValue],
+                           volumes: Seq[SecurityValue])
 object SecurityHistory {
+
 	import play.api.libs.json._ // Combinator syntax
 
 	implicit val securityHistoryWrites: Writes[SecurityHistory] = (history: SecurityHistory) =>
@@ -241,7 +257,10 @@ object SecurityHistory {
 			"type" -> "security-history",
 			"id" -> history.id,
 			"dates" -> history.dates,
-			"prices" -> history.prices,
+			"opens" -> history.opens,
+			"highs" -> history.highs,
+			"lows" -> history.lows,
+			"closes" -> history.closes,
 			"volumes" -> history.volumes
 		)
 }
@@ -251,9 +270,15 @@ object SecurityHistory {
   *
   * @see https://www.playframework.com/documentation/2.6.x/ScalaJson
   */
-case class SecurityUpdate(id: SecurityId, date: Date, price: SecurityPrice, volume: SecurityVolume)
-
+case class SecurityUpdate(id: SecurityId,
+                          date: Date,
+                          open: SecurityValue,
+                          high: SecurityValue,
+                          low: SecurityValue,
+                          close: SecurityValue,
+                          volume: SecurityValue)
 object SecurityUpdate {
+
 	import play.api.libs.json._ // Combinator syntax
 
 	implicit val securityUpdateWrites: Writes[SecurityUpdate] = (update: SecurityUpdate) =>
@@ -261,7 +286,10 @@ object SecurityUpdate {
 			"type" -> "security-update",
 			"id" -> update.id,
 			"date" -> update.date,
-			"price" -> update.price,
+			"open" -> update.open,
+			"high" -> update.high,
+			"low" -> update.low,
+			"close" -> update.close,
 			"volume" -> update.volume
 		)
 }

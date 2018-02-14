@@ -24,13 +24,16 @@ REFERENCE_ID = undefined
 PLOTS = {}
 
 # The interval of time between the points
-POINTS_INTERVAL = 300000 # [ms] (5 minutes)
+POINTS_INTERVAL = 60000 # 300000 [ms] (5 minutes)
 
 # The number of points to be averaged
 SAMPLE_SIZE = 1 # the sample rate is then 12 * 5 [min] = 1 [h]
 
 # The interval of time between the updates
 UPDATE_INTERVAL = 0 # [ms]
+
+# The candlesticks flag (experimental)
+CANDLESTICKS = true
 
 # All color palettes
 PALETTES =
@@ -150,7 +153,7 @@ populateSecurityHistory = (message) ->
 	initChart(id, plot)
 
 	# Show the chart if there is data or hide otherwise
-	if exist(message.prices, (p) -> p > 0)
+	if exist(message.closes, (p) -> p > 0)
 		showChart(id, plot)
 	else
 		hideChart(id, plot)
@@ -183,7 +186,7 @@ updateSecurityChart = (message) ->
 		++i
 
 	# Show the chart if there is data or hide otherwise
-	if message.price > 0
+	if message.close > 0
 		showChart(id, plot)
 	else
 		hideChart(id, plot)
@@ -258,82 +261,98 @@ createSeries = (id, message) ->
 	# Set the x-values
 	xValues = createDates(message.dates)
 
-	# Add the prices
-	series.push(
-		label: "Prices"
-		data: zip(xValues, message.prices)
-		yaxis: 1
-		lines:
-			show: true
-	)
+	if CANDLESTICKS
+		# Add the values
+		values = zip(xValues, message.opens, message.closes, message.lows, message.highs)
+		data = $.plot.candlestick.createCandlestick(
+			label: "Values"
+			data: values
+			yaxis: 1
+			candlestick:
+				show: true
+				lineWidth: "5px"
+		)
+		series.push(data[0]) # values
+		series.push(data[1]) # max
+		series.push(data[2]) # min
+	else
+		# Add the close values
+		values = zip(xValues, message.closes)
+		series.push(
+			label: "Values"
+			data: values
+			yaxis: 1
+			lines:
+				show: true
+		)
 
-	# Add the volumes
-	series.push(
-		label: "Volumes"
-		data: zip(xValues, message.volumes)
-		yaxis: 2
-		bars:
-			show: true
-		threshold:
-			below: 0
-			color: COLORS.red
-	)
+		# Add the volumes
+		series.push(
+			label: "Volumes"
+			data: zip(xValues, message.volumes)
+			yaxis: 2
+			bars:
+				show: true
+			threshold:
+				below: 0
+				color: COLORS.red
+		)
 
-	###
-	# Add delta (first derivative)
-	delta = derivative(quotes).map((p) -> [p[0], POINTS_INTERVAL * p[1]])
-	series.push(
-		label: "Delta"
-		data: sample(delta, SAMPLE_SIZE)
-		yaxis: 2
-		bars:
-			show: true
-		threshold:
-			below: 0
-			color: COLORS.red
-	)
+		###
+		# Add delta (first derivative)
+		delta = derivative(quotes).map((p) -> [p[0], POINTS_INTERVAL * p[1]])
+		series.push(
+			label: "Delta"
+			data: sample(delta, SAMPLE_SIZE)
+			yaxis: 2
+			bars:
+				show: true
+			threshold:
+				below: 0
+				color: COLORS.red
+		)
 
-	# Add gamma (second derivative)
-	gamma = smooth(derivative(delta).map((p) -> [p[0], POINTS_INTERVAL * p[1]]), SAMPLE_SIZE)
-	series.push(
-		label: "Gamma"
-		data: gamma
-		yaxis: 2
-		lines:
-			show: true
-		threshold:
-			below: 0
-			color: COLORS.red
-	)
-    ###
+		# Add gamma (second derivative)
+		gamma = smooth(derivative(delta).map((p) -> [p[0], POINTS_INTERVAL * p[1]]), SAMPLE_SIZE)
+		series.push(
+			label: "Gamma"
+			data: gamma
+			yaxis: 2
+			lines:
+				show: true
+			threshold:
+				below: 0
+				color: COLORS.red
+		)
+	    ###
 
 	return series
 
 # Update the series
 updateSeries = (id, plot, message) ->
-	# Get the prices and the volumes
+	# Get the close values and the volumes
 	series = plot.getData()
-	prices = getPoints(series, 0)
+	closes = getPoints(series, 0)
 	volumes = getPoints(series, 1)
 
 	# Get the new values
 	newDate = createDate(message.date)
-	newPrice = message.price
+	newClose = message.close
 	newVolume = message.volume
 
 	# Update the series
-	if newPrice > 0 and exist(prices, (q) -> q[1] <= 0)
+	if newClose > 0 and exist(closes, (q) -> q[1] <= 0)
 		# Replace all initial dummy quotes with the new one
-		prices = prices.map(-> [newDate, newPrice])
+		closes = closes.map(-> [newDate, newClose])
 		volumes = volumes.map(-> [newDate, newVolume])
 	else
-		# Add the new price
-		prices.shift()
-		prices.push([newDate, newPrice])
+		# Add the new close value
+		closes.shift()
+		closes.push([newDate, newClose])
 		# Add the new volume
 		volumes.shift()
 		volumes.push([newDate, newVolume])
-	series[0].data = prices
+	series[0].data = closes
 	series[1].data = volumes
 
 	# Update the plot
@@ -347,6 +366,8 @@ createChart = (id, series) ->
 	legend = $("<div>")
 		.prop("id", "legend-" + id)
 		.addClass("legend")
+	if CANDLESTICKS
+		legend.hide()
 	chart = $("<div>")
 		.prop("id", "chart-" + id)
 		.addClass("chart")
@@ -426,6 +447,7 @@ getChartOptions = (id, series) ->
 		autoHighlight: false
 		borderWidth: 2
 		clickable: false
+		editable: true
 		hoverable: true # must be true to enable "plothover"
 		markings: setVerticalStripes
 	legend:
@@ -447,6 +469,8 @@ getChartOptions = (id, series) ->
 	selection:
 		mode: "x"
 	series:
+		candlestick:
+			active: CANDLESTICKS
 		shadowSize: 1
 	tooltips:
 		show: true
@@ -472,18 +496,11 @@ getChartOptions = (id, series) ->
 			formatNumber(value)
 		tickLength: 6
 	yaxes: [
-		min: getYMin(getPoints(series, 0)) * 0.9
-		max: getYMax(getPoints(series, 0)) * 1.025
 		position: "left"
 		tickLength: "full"
-	,
-		alignTicksWithAxis: true
-		min: getYMin(getPoints(series, 1)) * 0.9
-		max: getYMax(getPoints(series, 1)) * 10
+		,
 		position: "right"
-		threshold:
-			below: 0
-			color: COLORS.red
+		tickLength: "full"
 	]
 
 setVerticalStripes = (axes) ->

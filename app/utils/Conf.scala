@@ -25,12 +25,16 @@ object Conf {
 			val URL: String = CONFIG.getString("finance.api.url")
 
 			// The labels (column names) of the API output
+			// - The main sections
 			val ERROR: String = CONFIG.getString("finance.api.out.error")
-			val META_DATA: String = CONFIG.getString("finance.api.out.meta.data")
+			val HEADER: String = CONFIG.getString("finance.api.out.header")
 			val DATA: String = CONFIG.getString("finance.api.out.data")
-			val PRICE: String = CONFIG.getString("finance.api.out.price")
+			// - The quote information
+			val OPEN: String = CONFIG.getString("finance.api.out.open")
+			val HIGH: String = CONFIG.getString("finance.api.out.high")
+			val LOW: String = CONFIG.getString("finance.api.out.low")
+			val CLOSE: String = CONFIG.getString("finance.api.out.close")
 			val VOLUME: String = CONFIG.getString("finance.api.out.volume")
-			val CAP: String = CONFIG.getString("finance.api.out.cap")
 		}
 	}
 
