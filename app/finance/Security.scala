@@ -185,7 +185,14 @@ class RealQuoteGenerator(id: SecurityId) extends SecurityQuoteGenerator {
 	def seed: SecurityQuote = {
 		updateCache()
 		logger.info(s"[$id] -> Seed")
-		SecurityQuote(beat, API.FROM_DATE, List(SecurityValue(0), SecurityValue(0)))
+		SecurityQuote(beat,
+			API.FROM_DATE,
+			List(SecurityValue(0),
+				SecurityValue(0),
+				SecurityValue(0),
+				SecurityValue(0),
+				SecurityValue(0))
+		)
 	}
 
 	def nextQuote(lastQuote: SecurityQuote): SecurityQuote = {

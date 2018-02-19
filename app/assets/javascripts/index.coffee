@@ -24,10 +24,13 @@ REFERENCE_ID = undefined
 PLOTS = {}
 
 # The interval of time between the points
-POINTS_INTERVAL = 60000 # 300000 [ms] (5 minutes)
+POINTS_INTERVAL = 86400000 # 86400000 [ms] (1 day) # 300000 [ms] (5 minutes)
 
 # The number of points to be averaged
-SAMPLE_SIZE = 1 # the sample rate is then 12 * 5 [min] = 1 [h]
+SAMPLE_SIZE = 1
+
+# The interval of time of a sample
+SAMPLE_INTERVAL = SAMPLE_SIZE * POINTS_INTERVAL
 
 # The interval of time between the updates
 UPDATE_INTERVAL = 0 # [ms]
@@ -43,7 +46,17 @@ PALETTES =
 	original: ["#333333", "#CC8800", "#00CC88", "#8800CC", "#0044CC", "#44CC00", "#CC0044"]
 
 # The current palette
-PALETTE = PALETTES.classic
+OPACITY = 0.9
+PALETTE = [
+	"rgba(51, 51, 51, " + OPACITY + ")",
+	"rgba(0, 204, 0, " + OPACITY + ")",
+	"rgba(0, 0, 204, " + OPACITY + ")",
+	"rgba(204, 0, 204, " + OPACITY + ")",
+	"rgba(0, 204, 204, " + OPACITY + ")",
+	"rgba(0, 204, 204, " + OPACITY + ")",
+	"rgba(204, 204, 0, " + OPACITY + ")",
+	"rgba(204, 0, 0, " + OPACITY + ")"
+]
 
 # All colors
 COLORS =
@@ -261,16 +274,33 @@ createSeries = (id, message) ->
 	# Set the x-values
 	xValues = createDates(message.dates)
 
+	# Add the volumes
+	series.push(
+		label: "Volumes"
+		data: zip(xValues, message.volumes)
+		yaxis: 1
+		bars:
+			show: true
+			fillColor: "rgba(51, 51, 51, 0.5)"
+			order: 1
+			threshold:
+				below: 0
+				color: COLORS.red
+	)
+
 	if CANDLESTICKS
 		# Add the values
 		values = zip(xValues, message.opens, message.closes, message.lows, message.highs)
 		data = $.plot.candlestick.createCandlestick(
 			label: "Values"
 			data: values
-			yaxis: 1
+			yaxis: 2
 			candlestick:
 				show: true
-				lineWidth: "5px"
+				lineWidth: "7px"
+				rangeWidth: 3
+				highlight:
+					opacity: 0.5
 		)
 		series.push(data[0]) # values
 		series.push(data[1]) # max
@@ -281,79 +311,67 @@ createSeries = (id, message) ->
 		series.push(
 			label: "Values"
 			data: values
-			yaxis: 1
-			lines:
-				show: true
-		)
-
-		# Add the volumes
-		series.push(
-			label: "Volumes"
-			data: zip(xValues, message.volumes)
-			yaxis: 2
-			bars:
-				show: true
-			threshold:
-				below: 0
-				color: COLORS.red
-		)
-
-		###
-		# Add delta (first derivative)
-		delta = derivative(quotes).map((p) -> [p[0], POINTS_INTERVAL * p[1]])
-		series.push(
-			label: "Delta"
-			data: sample(delta, SAMPLE_SIZE)
-			yaxis: 2
-			bars:
-				show: true
-			threshold:
-				below: 0
-				color: COLORS.red
-		)
-
-		# Add gamma (second derivative)
-		gamma = smooth(derivative(delta).map((p) -> [p[0], POINTS_INTERVAL * p[1]]), SAMPLE_SIZE)
-		series.push(
-			label: "Gamma"
-			data: gamma
 			yaxis: 2
 			lines:
 				show: true
-			threshold:
-				below: 0
-				color: COLORS.red
 		)
-	    ###
 
+	###
+	# Add delta (first derivative)
+	delta = derivative(quotes).map((p) -> [p[0], POINTS_INTERVAL * p[1]])
+	series.push(
+		label: "Delta"
+		data: sample(delta, SAMPLE_SIZE)
+		yaxis: 2
+		bars:
+			show: true
+		threshold:
+			below: 0
+			color: COLORS.red
+	)
+
+	# Add gamma (second derivative)
+	gamma = smooth(derivative(delta).map((p) -> [p[0], POINTS_INTERVAL * p[1]]), SAMPLE_SIZE)
+	series.push(
+		label: "Gamma"
+		data: gamma
+		yaxis: 2
+		lines:
+			show: true
+		threshold:
+			below: 0
+			color: COLORS.red
+	)
+	###
+
+	console.log(series)
 	return series
 
 # Update the series
 updateSeries = (id, plot, message) ->
 	# Get the close values and the volumes
 	series = plot.getData()
-	closes = getPoints(series, 0)
-	volumes = getPoints(series, 1)
+	volumes = getPoints(series, 0)
+	values = getPoints(series, 1)
 
 	# Get the new values
 	newDate = createDate(message.date)
-	newClose = message.close
 	newVolume = message.volume
 
 	# Update the series
-	if newClose > 0 and exist(closes, (q) -> q[1] <= 0)
+	if message.open > 0 and exist(values, (q) -> q[1] <= 0)
 		# Replace all initial dummy quotes with the new one
-		closes = closes.map(-> [newDate, newClose])
 		volumes = volumes.map(-> [newDate, newVolume])
+		values = values.map(-> [newDate, message.open, message.close, message.low, message.high])
 	else
-		# Add the new close value
-		closes.shift()
-		closes.push([newDate, newClose])
 		# Add the new volume
 		volumes.shift()
 		volumes.push([newDate, newVolume])
-	series[0].data = closes
-	series[1].data = volumes
+		# Add the new close value
+		values.shift()
+		values.push([newDate, message.open, message.close, message.low, message.high])
+	series[0].data = volumes
+	series[1].data = values
 
 	# Update the plot
 	plot.setData(series)
@@ -428,10 +446,9 @@ getChartOptions = (id, series) ->
 	bars:
 		show: false
 		align: "center"
-		barWidth: SAMPLE_SIZE * POINTS_INTERVAL
+		barWidth: SAMPLE_INTERVAL * 0.8
 		fill: true
-		lineWidth: 1
-		order: 2
+		lineWidth: 0
 	colors: PALETTE
 	crosses:
 		show: true
@@ -440,7 +457,7 @@ getChartOptions = (id, series) ->
 			x: COLORS.darkGrey
 			y: PALETTE
 		lineWidth: 1
-		opacity: 1.0
+		opacity: OPACITY
 	grid:
 		show: true
 		aboveData: false
@@ -460,12 +477,9 @@ getChartOptions = (id, series) ->
 	lines:
 		show: false
 		fill: false
-		fillColor:
-			colors: series.map(-> opacity: 0.5)
 	points:
 		show: false
 		fill: true
-		fillColor: PALETTE
 	selection:
 		mode: "x"
 	series:
@@ -491,16 +505,17 @@ getChartOptions = (id, series) ->
 		show: true
 		autoscaleMargin: 0.05
 		color: COLORS.black
+		position: "left"
 		tickColor: "rgba(0, 0, 0, 0.33)"
 		tickFormatter: (value, axis) ->
 			formatNumber(value)
-		tickLength: 6
-	yaxes: [
-		position: "left"
 		tickLength: "full"
+	yaxes: [
+		position: "right"
+		tickLength: 6
 		,
 		position: "right"
-		tickLength: "full"
+		tickLength: 6
 	]
 
 setVerticalStripes = (axes) ->
@@ -596,7 +611,7 @@ updateCharts = () ->
 		# Get the x-value from the cursor location
 		reference = plot.c2p(
 			left: parseToInt(LOCATION.pageX - plot.offset().left)
-			top:  parseToInt(LOCATION.pageY - plot.offset().top)
+			top: parseToInt(LOCATION.pageY - plot.offset().top)
 		)
 		xValue = reference.x
 
